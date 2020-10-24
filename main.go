@@ -1,6 +1,6 @@
 package main
 
-import "goose/cmd"
+import "github.com/sir-wiggles/goose/cmd"
 
 func main() {
 	cmd.Execute()
