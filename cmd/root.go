@@ -39,10 +39,17 @@ func Execute() error {
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize a migration table in the database",
+	Short: "Initializes a migration table in the database called goosey",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("init")
-		return nil
+		db, err := lib.NewDatabase("postgres://user:pass@localhost:5432/db?sslmode=disable")
+		if err != nil {
+			return err
+		}
+		err = db.CreateMigrationTable()
+		if err == nil {
+			fmt.Println("initialized successfully")
+		}
+		return err
 	},
 }
 
@@ -93,9 +100,15 @@ var upCmd = &cobra.Command{
 	Short: "Run one or more up migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		steps, err := strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("invalid number %s", args[0])
+		var (
+			steps int
+			err   error
+		)
+		if len(args) == 1 {
+			steps, err = strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid number %s", args[0])
+			}
 		}
 
 		db, err := lib.NewDatabase("postgres://user:pass@localhost:5432/db?sslmode=disable")
@@ -109,21 +122,13 @@ var upCmd = &cobra.Command{
 			return err
 		}
 
-		currentMigration, err := db.GetLatestMigration()
-		if err != nil {
-			return err
+		if steps == 0 {
+			steps = len(migrations)
 		}
 
-		warnings := migrations.FindWarnings(currentMigration)
-		if len(warnings) > 0 {
-			fmt.Println("\n\n\t+======================== WARNING ========================+")
-			fmt.Println("\t| The following scripts have not been migrated but appear |")
-			fmt.Println("\t| before the current migration in the database.           |")
-			fmt.Println("\t+======================== WARNING ========================+")
-			for i, w := range warnings {
-				fmt.Println(i, w.Hash, w.Path)
-			}
-			fmt.Println("\t========================= ======= =========================\n\n")
+		currentMigration, err := db.GetHashForMarkerN(1)
+		if err != nil {
+			return err
 		}
 
 		start, stop, err := migrations.FindMigrationRangeUp(currentMigration, steps)
@@ -131,7 +136,7 @@ var upCmd = &cobra.Command{
 			return err
 		}
 
-		err = migrations.Execute(start, stop)
+		err = migrations.Execute(start, stop, lib.Up, db)
 		if err != nil {
 			return err
 		}
@@ -144,9 +149,15 @@ var downCmd = &cobra.Command{
 	Use:   "down [steps]",
 	Short: "Run one or more down migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		steps, err := strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("invalid number %s", args[0])
+		var (
+			steps int
+			err   error
+		)
+		if len(args) == 1 {
+			steps, err = strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid number %s", args[0])
+			}
 		}
 
 		db, err := lib.NewDatabase("postgres://user:pass@localhost:5432/db?sslmode=disable")
@@ -160,28 +171,20 @@ var downCmd = &cobra.Command{
 			return err
 		}
 
-		currentMigration, err := db.GetLatestMigration()
-		if err != nil {
-			return err
+		if steps == 0 {
+			steps = len(migrations)
 		}
 
-		warnings := migrations.FindWarnings(currentMigration)
-		if len(warnings) > 0 {
-			fmt.Println("\n\n\t+======================== WARNING ========================+")
-			fmt.Println("\t| The following scripts have not been migrated but appear |")
-			fmt.Println("\t| before the current migration in the database.           |")
-			fmt.Println("\t+======================== WARNING ========================+")
-			for i, w := range warnings {
-				fmt.Println(i, w.Hash, w.Path)
-			}
-			fmt.Println("\t========================= ======= =========================\n\n")
+		currentMigration, err := db.GetHashForMarkerN(1)
+		if err != nil {
+			return err
 		}
 
 		start, stop, err := migrations.FindMigrationRangeDown(currentMigration, steps)
 		if err != nil {
 			return err
 		}
-		err = migrations.Execute(start, stop)
+		err = migrations.Execute(start, stop, lib.Down, db)
 		if err != nil {
 			return err
 		}
@@ -204,24 +207,6 @@ var redoCmd = &cobra.Command{
 	Short: "Rollback last batch and perform all migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("redo")
-		return nil
-	},
-}
-
-var testCmd = &cobra.Command{
-	Use:   "test",
-	Short: "test",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("test")
-		db, err := lib.NewDatabase("postgres://user:pass@localhost:5432/db?sslmode=disable")
-		if err != nil {
-			return err
-		}
-		migrations := lib.NewMigrations(migrationPath)
-		err = migrations.Reconcile(db)
-		if err != nil {
-			return err
-		}
 		return nil
 	},
 }

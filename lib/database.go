@@ -11,8 +11,12 @@ import (
 )
 
 type Datastore interface {
+	DeleteLastMigration(string) error
+	GetHashForMarkerN(offset int) error
 	GetLatestMigration() (string, error)
 	GetListOfMigrations() ([]Migration, error)
+	RunScript(path string) error
+	SetLatestMigration(string, string, bool) error
 }
 
 type DB struct {
@@ -29,24 +33,29 @@ func NewDatabase(url string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	err = db.Ping()
-	conn := &DB{db}
-
-	_, err = conn.GetLatestMigration()
-	if err != nil {
-		fmt.Println(err)
-	}
-	return conn, nil
+	return &DB{db}, db.Ping()
 }
 
-func (db DB) GetLatestMigration() (string, error) {
+func (db DB) GetHashForMarkerN(offset int) (string, error) {
 	var hash string
-	err := db.QueryRow("SELECT hash FROM goosey ORDER BY created_at DESC LIMIT 1").Scan(&hash)
-	if pgerr, ok := err.(*pq.Error); ok {
-		if pgerr.Code == pg_UNDEFINED_TABLE {
-			return "", fmt.Errorf(UNDEFINED_TABLE)
-		}
+
+	err := db.QueryRow(`
+		SELECT hash FROM goosey 
+			ORDER BY created_at DESC
+			OFFSET $1
+			LIMIT 1
+	`, offset-1).Scan(&hash)
+	if err != nil && err.Error() == "sql: no rows in result set" {
+		return "", nil
+	} else if err == nil {
+		return hash, nil
+	}
+
+	pgerr, ok := err.(*pq.Error)
+	if !ok {
+		return "", err
+	} else if pgerr.Code == pg_UNDEFINED_TABLE {
+		return "", fmt.Errorf(UNDEFINED_TABLE)
 	}
 	return hash, err
 }
@@ -81,9 +90,37 @@ func (db DB) GetListOfMigrations() (Migrations, error) {
 		log.Fatal(err)
 	}
 	return migrations, err
-
 }
 
-func (db DB) SetLatestMigration(hash, name string, marker bool) error {
-	return nil
+func (db DB) SetLatestMigration(script Script, marker bool) error {
+	_, err := db.Exec(`
+		INSERT INTO goosey (
+			name, hash, author, marker
+		) VALUES ($1, $2, $3, $4)
+	`, script.Name, script.Hash, script.Author, marker)
+	return err
+}
+
+func (db DB) DeleteLastMigration(hash string) error {
+	_, err := db.Exec("DELETE FROM goosey WHERE hash = $1", hash)
+	return err
+}
+
+func (db DB) RunScript(script string) error {
+	_, err := db.Exec(script)
+	return err
+}
+
+func (db DB) CreateMigrationTable() error {
+	_, err := db.Exec(`
+		CREATE TABLE goosey (
+			id SERIAL  PRIMARY KEY,
+			created_at TIMESTAMP DEFAULT NOW(),
+			name 	   TEXT,
+			hash       TEXT,
+			author     TEXT,
+			marker     BOOLEAN
+		);
+	`)
+	return err
 }
