@@ -8,5 +8,5 @@ func init() {
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all executed migrations",
+	Short: "List pending or executed migrations",
 }
