@@ -8,6 +8,7 @@ import (
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"github.com/spf13/viper"
 )
 
 type Datastore interface {
@@ -28,7 +29,8 @@ const (
 	UNDEFINED_TABLE    = "table does not exist"
 )
 
-func NewDatabase(url string) (*DB, error) {
+func NewDatabase() (*DB, error) {
+	url := viper.GetString("database-url")
 	db, err := sql.Open("postgres", url)
 	if err != nil {
 		return nil, err
@@ -61,7 +63,7 @@ func (db DB) GetHashForMarkerN(offset int) (string, error) {
 }
 
 func (db DB) GetListOfMigrations() (Migrations, error) {
-	rows, err := db.Query("SELECT created_at, name, hash, marker FROM goosey")
+	rows, err := db.Query("SELECT created_at, hash, marker FROM goosey")
 	if err != nil {
 		return nil, err
 	}
@@ -69,18 +71,15 @@ func (db DB) GetListOfMigrations() (Migrations, error) {
 	migrations := make(Migrations, 0, 10)
 	for rows.Next() {
 		var (
-			name       string
 			hash       string
 			marker     bool
 			executedAt time.Time
 		)
-		err := rows.Scan(&executedAt, &name, &hash, &marker)
+		err := rows.Scan(&executedAt, &hash, &marker)
 		if err != nil {
 			log.Fatal(err)
 		}
 		migrations = append(migrations, &Migration{
-			Date:   executedAt,
-			Path:   name,
 			Hash:   hash,
 			Marker: marker,
 		})
@@ -95,9 +94,9 @@ func (db DB) GetListOfMigrations() (Migrations, error) {
 func (db DB) SetLatestMigration(script Script, marker bool) error {
 	_, err := db.Exec(`
 		INSERT INTO goosey (
-			name, hash, author, marker
-		) VALUES ($1, $2, $3, $4)
-	`, script.Name, script.Hash, script.Author, marker)
+			hash, author, marker, merged_at, created_at
+		) VALUES ($1, $2, $3, $4, $5)
+	`, script.Hash, script.Author, marker, script.MergedDate, script.CreateDate)
 	return err
 }
 
@@ -114,12 +113,13 @@ func (db DB) RunScript(script string) error {
 func (db DB) CreateMigrationTable() error {
 	_, err := db.Exec(`
 		CREATE TABLE goosey (
-			id SERIAL  PRIMARY KEY,
-			created_at TIMESTAMP DEFAULT NOW(),
-			name 	   TEXT,
-			hash       TEXT,
-			author     TEXT,
-			marker     BOOLEAN
+			id SERIAL   PRIMARY KEY,
+			created_at  TIMESTAMPTZ,
+			merged_at   TIMESTAMPTZ,
+			executed_at TIMESTAMPTZ DEFAULT NOW(),
+			hash        TEXT,
+			author      TEXT,
+			marker      BOOLEAN
 		);
 	`)
 	return err
