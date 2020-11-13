@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sir-wiggles/goose/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -15,19 +14,7 @@ var listPendingCmd = &cobra.Command{
 	Use:   "pending",
 	Short: "List all pending migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		migrations := lib.NewMigrations()
-
-		db, err := lib.NewDatabase()
-		if err != nil {
-			return err
-		}
-
-		currentMigration, err := db.GetHashForMarkerN(1)
-		if err != nil {
-			return err
-		}
-
-		start, _, err := migrations.FindMigrationRangeUp(currentMigration, -1)
+		migrations, start, err := listingData()
 		if err != nil {
 			return err
 		}

@@ -152,7 +152,7 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
 }
 
 func (ds *Migrations) Reconcile(db *DB) error {
-	ranMigrations, err := db.GetListOfMigrations()
+	ranMigrations, err := db.ListMigrations()
 	if err != nil {
 		return err
 	}
@@ -170,19 +170,23 @@ func (ds *Migrations) Reconcile(db *DB) error {
 	return nil
 }
 
-// FindMigrationRangeDown finds the range of migration scripts that are requested to run for the
-// up process.
-func (ds *Migrations) FindMigrationRangeUp(hash string, steps int) (int, int, error) {
+func (ds *Migrations) FindMigrationRange(hash string, steps int, direction Direction) (int, int, error) {
 	if steps == 0 {
 		steps = len(*ds)
 	}
-	if hash == "" {
+
+	if hash == "" && direction == UP {
 		return 0, boundry(len(*ds), 0, steps), nil
+	} else if hash == "" && direction == DOWN {
+		return -1, -1, fmt.Errorf("no starting point found, nothing to do")
+	}
+	if direction == DOWN {
+		sort.Sort(sort.Reverse(*ds))
 	}
 
 	for index, migration := range *ds {
 		if migration.Hash == hash {
-			return index + 1, boundry(len(*ds), index+1, steps), nil
+			return index + int(direction), boundry(len(*ds), index+int(direction), steps), nil
 		}
 	}
 
@@ -194,26 +198,6 @@ func boundry(items, start, steps int) int {
 		return items
 	}
 	return start + steps
-}
-
-// FindMigrationRangeDown finds the range of migration scripts that are requested to run for the
-// down process. The list will also be in reverse order after calling this method.
-func (ds *Migrations) FindMigrationRangeDown(hash string, steps int) (int, int, error) {
-	if steps == 0 {
-		steps = len(*ds)
-	}
-	if hash == "" {
-		return -1, -1, fmt.Errorf("no starting point found")
-	}
-	sort.Sort(sort.Reverse(*ds))
-
-	for index, migration := range *ds {
-		if migration.Hash == hash {
-			return index, boundry(len(*ds), index, steps), nil
-		}
-	}
-
-	return -1, -1, fmt.Errorf("can't find index for %s", hash)
 }
 
 // Execute will execute the scripts in the range of start and stop
@@ -235,9 +219,17 @@ func (ds Migrations) Execute(start, stop int, direction Direction, db *DB) error
 
 // Script is the specific up or down script.
 type Script struct {
-	Hash       string
-	Path       string
+	// Hash is the git commit hash for this migration
+	Hash string
+
+	// Path is the absolute path of the migration script
+	Path string
+
+	// MergedDate is the date the migration was committed to the repo
 	MergedDate time.Time
+
+	// CreateDate is the date the migration was created with the make command.
+	// This is the date the is part of the directory where the scripts reside
 	CreateDate time.Time
 
 	Author    string
@@ -256,9 +248,9 @@ func (s Script) Execute(db *DB, isLastMigration bool) error {
 	}
 
 	if s.direction == UP {
-		err = db.SetLatestMigration(s, isLastMigration)
+		err = db.SetLastMigration(s, isLastMigration)
 	} else {
-		err = db.DeleteLastMigration(s.Hash)
+		err = db.DelLastMigration(s.Hash, isLastMigration)
 	}
 	return err
 }

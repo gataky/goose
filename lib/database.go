@@ -7,18 +7,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
 )
-
-type Datastore interface {
-	DeleteLastMigration(string) error
-	GetHashForMarkerN(offset int) error
-	GetLatestMigration() (string, error)
-	GetListOfMigrations() ([]Migration, error)
-	RunScript(path string) error
-	SetLatestMigration(string, string, bool) error
-}
 
 type DB struct {
 	*sql.DB
@@ -43,7 +33,8 @@ func (db DB) GetHashForMarkerN(offset int) (string, error) {
 
 	err := db.QueryRow(`
 		SELECT hash FROM goosey 
-			ORDER BY created_at DESC
+			WHERE marker = TRUE
+			ORDER BY executed_at DESC
 			OFFSET $1
 			LIMIT 1
 	`, offset-1).Scan(&hash)
@@ -62,7 +53,7 @@ func (db DB) GetHashForMarkerN(offset int) (string, error) {
 	return hash, err
 }
 
-func (db DB) GetListOfMigrations() (Migrations, error) {
+func (db DB) ListMigrations() (Migrations, error) {
 	rows, err := db.Query("SELECT created_at, hash, marker FROM goosey")
 	if err != nil {
 		return nil, err
@@ -91,7 +82,7 @@ func (db DB) GetListOfMigrations() (Migrations, error) {
 	return migrations, err
 }
 
-func (db DB) SetLatestMigration(script Script, marker bool) error {
+func (db DB) SetLastMigration(script Script, marker bool) error {
 	_, err := db.Exec(`
 		INSERT INTO goosey (
 			hash, author, marker, merged_at, created_at
@@ -100,8 +91,31 @@ func (db DB) SetLatestMigration(script Script, marker bool) error {
 	return err
 }
 
-func (db DB) DeleteLastMigration(hash string) error {
-	_, err := db.Exec("DELETE FROM goosey WHERE hash = $1", hash)
+func (db DB) DelLastMigration(hash string, marker bool) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	if _, err = tx.Exec("DELETE FROM goosey WHERE hash = $1", hash); err != nil {
+		return err
+	}
+	if marker == true {
+		if _, err = tx.Exec(`
+			UPDATE goosey SET marker = TRUE WHERE id = (
+				SELECT id FROM goosey ORDER BY executed_at DESC LIMIT 1
+			)
+		`); err != nil {
+			return err
+		}
+	}
 	return err
 }
 
