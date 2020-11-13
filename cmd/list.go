@@ -14,19 +14,21 @@ var listCmd = &cobra.Command{
 	Short: "List pending or executed migrations",
 }
 
-func listingData() (lib.Migrations, int, error) {
+func listingData() (lib.Migrations, error) {
 	migrations := lib.NewMigrations()
 
 	db, err := lib.NewDatabase()
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
 
 	currentMigration, err := db.GetHashForMarkerN(1)
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
 
-	start, _, err := migrations.FindMigrationRange(currentMigration, -1, lib.UP)
-	return migrations, start, err
+	if err = migrations.Range(currentMigration, -1, lib.UP); err != nil {
+		return nil, err
+	}
+	return migrations, nil
 }

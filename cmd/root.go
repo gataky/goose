@@ -84,12 +84,11 @@ func runMigration(args []string, direction lib.Direction) error {
 		return err
 	}
 
-	start, stop, err := migrations.FindMigrationRange(currentMigration, steps, direction)
-	if err != nil {
+	if err = migrations.Range(currentMigration, steps, direction); err != nil {
 		return err
 	}
 
-	if err := migrations.Execute(start, stop, direction, db); err != nil {
+	if err := migrations.Execute(direction, db); err != nil {
 		return err
 	}
 	return nil

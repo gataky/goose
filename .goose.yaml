@@ -6,17 +6,18 @@ templates:
     up:
       BEGIN;
 
-        -- insert your code here --
+      -- insert your code here --
 
-        INSERT INTO schema_version (version, logged_by) VALUES ('{{.Migration}}', '{{.Author}}');
+      INSERT INTO schema_version (version, logged_by) VALUES ('{{.Migration}}', '{{.Author}}');
 
       COMMIT;
+
     down:
       BEGIN;
 
-        -- insert your code here --
+      -- insert your code here --
 
-        DELETE FROM schema_version where version = '{{.Migration}}';
+      DELETE FROM schema_version where version = '{{.Migration}}';
 
       COMMIT;
 

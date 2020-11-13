@@ -28,9 +28,34 @@ func NewDatabase() (*DB, error) {
 	return &DB{db}, db.Ping()
 }
 
+func (db DB) GetLastNMarkers(limit int) (map[string]bool, error) {
+	rows, err := db.Query(`
+		SELECT hash FROM goosey 
+			WHERE marker = TRUE
+			ORDER BY executed_at DESC
+			LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	hashes := make(map[string]bool, limit)
+	for rows.Next() {
+		var hash string
+		if err = rows.Scan(&hash); err != nil {
+			return nil, err
+		}
+		hashes[hash] = true
+	}
+	if len(hashes) == 0 {
+		return hashes, fmt.Errorf("no markers found")
+	}
+	return hashes, rows.Err()
+}
+
 func (db DB) GetHashForMarkerN(offset int) (string, error) {
 	var hash string
-
 	err := db.QueryRow(`
 		SELECT hash FROM goosey 
 			WHERE marker = TRUE

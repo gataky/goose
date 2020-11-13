@@ -151,46 +151,49 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
 	return time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", timestamp)
 }
 
-func (ds *Migrations) Reconcile(db *DB) error {
-	ranMigrations, err := db.ListMigrations()
-	if err != nil {
-		return err
-	}
-
-	ranMigrationMap := make(map[string]*Migration)
-	for _, migration := range ranMigrations {
-		ranMigrationMap[migration.Hash] = migration
-	}
-
-	for _, migration := range *ds {
-		if _, ok := ranMigrationMap[migration.Hash]; ok {
-			(*migration).Migrated = true
+func (ds *Migrations) Slice(markers map[string]bool) error {
+	indices := make([]int, 0, 2)
+	for i, m := range *ds {
+		if _, found := markers[m.Hash]; found {
+			indices = append(indices, i)
 		}
 	}
+
+	if len(markers) == 1 {
+		indices = append(indices, len(*ds))
+	}
+	*ds = (*ds)[indices[0]:indices[1]]
 	return nil
 }
 
-func (ds *Migrations) FindMigrationRange(hash string, steps int, direction Direction) (int, int, error) {
+func (ds *Migrations) Range(hash string, steps int, direction Direction) error {
 	if steps == 0 {
 		steps = len(*ds)
 	}
 
 	if hash == "" && direction == UP {
-		return 0, boundry(len(*ds), 0, steps), nil
+		start := 0
+		stop := boundry(len(*ds), 0, steps)
+		*ds = (*ds)[start:stop]
+		return nil
 	} else if hash == "" && direction == DOWN {
-		return -1, -1, fmt.Errorf("no starting point found, nothing to do")
+		return fmt.Errorf("no starting point found, nothing to do")
 	}
+
 	if direction == DOWN {
 		sort.Sort(sort.Reverse(*ds))
 	}
 
 	for index, migration := range *ds {
 		if migration.Hash == hash {
-			return index + int(direction), boundry(len(*ds), index+int(direction), steps), nil
+			start := index + int(direction)
+			stop := boundry(len(*ds), index+int(direction), steps)
+			*ds = (*ds)[start:stop]
+			return nil
 		}
 	}
 
-	return -1, -1, fmt.Errorf("can't find index for %s", hash)
+	return fmt.Errorf("can not find index for %s", hash)
 }
 
 func boundry(items, start, steps int) int {
@@ -201,14 +204,30 @@ func boundry(items, start, steps int) int {
 }
 
 // Execute will execute the scripts in the range of start and stop
-func (ds Migrations) Execute(start, stop int, direction Direction, db *DB) error {
+func (ds Migrations) Execute(direction Direction, db *DB) error {
 	var err error
-	lastIndex := len(ds[start:stop]) - 1
-	for i, migration := range ds[start:stop] {
+	lastIndex := len(ds) - 1
+	for i, migration := range ds {
 		if direction == UP {
 			err = migration.Up.Execute(db, i == lastIndex)
 		} else {
 			err = migration.Down.Execute(db, i == lastIndex)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ds Migrations) Execute2(direction Direction, db *DB) error {
+	var err error
+	last := len(ds) - 1
+	for i, m := range ds {
+		if direction == UP {
+			err = m.Up.Execute(db, i == last)
+		} else {
+			err = m.Down.Execute(db, i == last)
 		}
 		if err != nil {
 			return err
