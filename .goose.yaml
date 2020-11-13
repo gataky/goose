@@ -1,2 +1,34 @@
 database-url: postgres://user:pass@localhost:5432/db?sslmode=disable
 migration-path: /home/jeff/Documents/migrations/
+
+templates:
+  schema: 
+    up:
+      BEGIN;
+
+        -- insert your code here --
+
+        INSERT INTO schema_version (version, logged_by) VALUES ('{{.Migration}}', '{{.Author}}');
+
+      COMMIT;
+    down:
+      BEGIN;
+
+        -- insert your code here --
+
+        DELETE FROM schema_version where version = '{{.Migration}}';
+
+      COMMIT;
+
+
+  data: 
+    up: |
+      -- insert your code here --
+
+      INSERT INTO schema_version (version, logged_by) VALUES ('{{.Migration}}', '{{.Author}}');
+
+    down: |
+      -- insert your code here --
+
+      DELETE FROM schema_version where version = '{{.Migration}}';
+
