@@ -82,29 +82,23 @@ func runMigration(args []string, direction lib.Direction) error {
 var aboutCmd = &cobra.Command{
 	Use:   "about",
 	Short: "The internal working of goose",
-	Long: `Goose is a SQL migration tool that applies migrations relative to the last migration 
-file ran.  You can apply N number of migration up or down to your database and goose will keep 
-track of everything for you.
+	Long: `Goose is a SQL migration tool that applies migrations relative to the last migration file ran.  You can apply N number of migration up or down to your database and goose will keep track of everything for you.
 
-Terminology:
-	* migration: a single script to run against the database
-	* batch    : a group of migrations to run against the database
-	* marker   : a marker of the migrations that were last in their batch
-	* hash     : the git hash of those added files
+Terms:
+* migration: a single script to run against the database
+* batch    : a group of migrations to run against the database
+* marker   : a marker of the migrations that were last in their batch
+* hash     : the git hash of those added files
 
-Goose keeps track of the migrations ran in a table called goosey in your database. To initialize 
-this table you'll need to run "goose init" which will create a table that has six important fields:
-	* created_at : The time a migration was made. This information is encoded in the directory name
-	* merged_at  : The time a migration was committed with the repository
-	* executed_at: The time a migration was ran against the database
-	* hash       : The commit hash of when these files were added to the repository
-	* author     : The author of a migration. This information is encoded in the directory name
-	* marker     : An indicator if this migration is the last in its batch
+Goose keeps track of the migrations ran in a table called goosey in your database. To initialize this table you'll need to run "goose init" which will create a table that has six important fields:
+* created_at : The time a migration was made. This information is encoded in the directory name
+* merged_at  : The time a migration was committed with the repository
+* executed_at: The time a migration was ran against the database
+* hash       : The commit hash of when these files were added to the repository
+* author     : The author of a migration. This information is encoded in the directory name
+* marker     : An indicator if this migration is the last in its batch
 
-To make a migration run "goose make (firstname) (lastname) (message)" this will create directory
-with the format yyyymmdd_hhmmss_firstname_lastname_message and in that directory two files, up.sql 
-and down.sql, will be created where you'll write your SQL scripts. Other files added do these
-directories will be ignored by goose.
+To make a migration run "goose make (firstname) (lastname) (message)" this will create directory with the format yyyymmdd_hhmmss_firstname_lastname_message and in that directory two files, up.sql and down.sql, will be created where you'll write your SQL scripts. Other files added do these directories will be ignored by goose.
 
 The structure of your migration directory will look like 
 .
@@ -130,9 +124,7 @@ The structure of your migration directory will look like
     ├── down.sql
     └── up.sql
 
-Goose will apply migrations in the order that they were added to the repository. To determine this
-order goose runs "git log --pretty='format:%Cred%H|%aD' --name-status --diff-filter=A --reverse"
-which produces
+Goose will apply migrations in the order that they were added to the repository. To determine this order goose runs "git log --pretty='format:%Cred%H|%aD' --name-status --diff-filter=A --reverse" which produces
 
 e965f4511fce6ae61e1cfdcf174f61cfd4fe920b|Wed, 11 Nov 2020 22:53:49 -0800
 A       20201023_010000_a_o_solv-20201023_010000_a/down.sql
