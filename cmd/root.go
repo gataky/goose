@@ -64,12 +64,12 @@ func runMigration(args []string, direction lib.Direction) error {
 
 	migrations := lib.NewMigrations()
 
-	currentMigration, err := db.GetHashForMarkerN(1)
+	hash, _, err := db.LastMarker()
 	if err != nil {
 		return err
 	}
 
-	if err = migrations.Range(currentMigration, steps, direction); err != nil {
+	if err = migrations.Slice(hash, steps, direction); err != nil {
 		return err
 	}
 

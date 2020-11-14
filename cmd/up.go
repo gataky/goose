@@ -29,7 +29,7 @@ it's the last one.  More on this when we get to rollbacks and redos
 If you want to apply all the migration you can run "goose up" and that will run every migration 
 that's remaining.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runMigration(args, lib.UP)
+		return runMigration(args, lib.Up)
 	},
 	Args: stepValidator,
 }

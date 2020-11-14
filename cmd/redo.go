@@ -21,7 +21,7 @@ var redoCmd = &cobra.Command{
 			return err
 		}
 
-		markers, err := db.GetLastNMarkers(2)
+		hash, steps, err := db.LastMarker()
 		if err != nil {
 			return err
 		}
@@ -29,17 +29,17 @@ var redoCmd = &cobra.Command{
 		migrations := lib.NewMigrations()
 		sort.Sort(sort.Reverse(migrations))
 
-		if err = migrations.Slice(markers); err != nil {
+		if err = migrations.Slice(hash, steps, lib.Down); err != nil {
 			return err
 		}
 
-		if err := migrations.Execute(lib.DOWN, db); err != nil {
+		if err := migrations.Execute(lib.Down, db); err != nil {
 			return err
 		}
 
 		sort.Sort(migrations)
 
-		if err := migrations.Execute(lib.UP, db); err != nil {
+		if err := migrations.Execute(lib.Up, db); err != nil {
 			return err
 		}
 		return nil

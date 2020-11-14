@@ -2,22 +2,14 @@ package lib
 
 import (
 	"database/sql"
-	"fmt"
-	"log"
-	"time"
 
-	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
 )
 
 type DB struct {
 	*sql.DB
 }
-
-const (
-	pg_UNDEFINED_TABLE = "42P01"
-	UNDEFINED_TABLE    = "table does not exist"
-)
 
 func NewDatabase() (*DB, error) {
 	url := viper.GetString("database-url")
@@ -28,95 +20,55 @@ func NewDatabase() (*DB, error) {
 	return &DB{db}, db.Ping()
 }
 
-func (db DB) GetLastNMarkers(limit int) (map[string]bool, error) {
+// LastMarker will return the lats marker and the number of steps to the marker before that.
+func (db DB) LastMarker() (string, int, error) {
 	rows, err := db.Query(`
-		SELECT hash FROM goosey 
-			WHERE marker = TRUE
-			ORDER BY executed_at DESC
-			LIMIT $1
-	`, limit)
+	SELECT hash FROM goosey WHERE 
+		id <= ( SELECT id FROM goosey 
+				WHERE marker = true 
+				ORDER BY executed_at DESC 
+				LIMIT 1 OFFSET 0 )
+	AND
+		id > COALESCE((SELECT id FROM goosey 
+					   WHERE marker = true 
+					   ORDER BY executed_at DESC 
+					   LIMIT 1 OFFSET 1 ), 0)
+	ORDER BY executed_at DESC
+	`)
+
 	if err != nil {
-		return nil, err
+		return "", 0, err
 	}
 	defer rows.Close()
 
-	hashes := make(map[string]bool, limit)
+	hashes := make([]string, 0, 1)
 	for rows.Next() {
 		var hash string
 		if err = rows.Scan(&hash); err != nil {
-			return nil, err
+			return "", 0, err
 		}
-		hashes[hash] = true
+		hashes = append(hashes, hash)
 	}
-	if len(hashes) == 0 {
-		return hashes, fmt.Errorf("no markers found")
-	}
-	return hashes, rows.Err()
-}
-
-func (db DB) GetHashForMarkerN(offset int) (string, error) {
 	var hash string
-	err := db.QueryRow(`
-		SELECT hash FROM goosey 
-			WHERE marker = TRUE
-			ORDER BY executed_at DESC
-			OFFSET $1
-			LIMIT 1
-	`, offset-1).Scan(&hash)
-	if err != nil && err.Error() == "sql: no rows in result set" {
-		return "", nil
-	} else if err == nil {
-		return hash, nil
+	if len(hashes) > 0 {
+		hash = hashes[0]
 	}
-
-	pgerr, ok := err.(*pq.Error)
-	if !ok {
-		return "", err
-	} else if pgerr.Code == pg_UNDEFINED_TABLE {
-		return "", fmt.Errorf(UNDEFINED_TABLE)
-	}
-	return hash, err
+	return hash, len(hashes), nil
 }
 
-func (db DB) ListMigrations() (Migrations, error) {
-	rows, err := db.Query("SELECT created_at, hash, marker FROM goosey")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	migrations := make(Migrations, 0, 10)
-	for rows.Next() {
-		var (
-			hash       string
-			marker     bool
-			executedAt time.Time
-		)
-		err := rows.Scan(&executedAt, &hash, &marker)
-		if err != nil {
-			log.Fatal(err)
-		}
-		migrations = append(migrations, &Migration{
-			Hash:   hash,
-			Marker: marker,
-		})
-	}
-	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return migrations, err
-}
-
-func (db DB) SetLastMigration(script Script, marker bool) error {
+// InsertLastMigration inserts a row into goosey with information related to the migration afte
+func (db DB) InsertLastMigration(script Script, marker bool) error {
 	_, err := db.Exec(`
 		INSERT INTO goosey (
-			hash, author, marker, merged_at, created_at
+			created_at, merged_at, hash, author, marker
 		) VALUES ($1, $2, $3, $4, $5)
-	`, script.Hash, script.Author, marker, script.MergedDate, script.CreateDate)
+	`, script.CreateDate, script.MergedDate, script.Hash, script.Author, marker)
 	return err
 }
 
-func (db DB) DelLastMigration(hash string, marker bool) error {
+// DeleteLastMigration deletes a row from goosey.  If marker is true then the last row in the
+// table will have its marker column set to true.
+func (db DB) DeleteLastMigration(hash string, marker bool) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -144,12 +96,14 @@ func (db DB) DelLastMigration(hash string, marker bool) error {
 	return err
 }
 
+// RunScript executes a string of sql
 func (db DB) RunScript(script string) error {
 	_, err := db.Exec(script)
 	return err
 }
 
-func (db DB) CreateMigrationTable() error {
+// InitGoosey initializes the goosey table.
+func (db DB) InitGoosey() error {
 	_, err := db.Exec(`
 		CREATE TABLE goosey (
 			id SERIAL   PRIMARY KEY,

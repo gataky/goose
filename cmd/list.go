@@ -24,12 +24,12 @@ func listMigrations(direction lib.Direction) error {
 		return err
 	}
 
-	currentMigration, err := db.GetHashForMarkerN(1)
+	hash, _, err := db.LastMarker()
 	if err != nil {
 		return err
 	}
 
-	if err = migrations.Range(currentMigration, -1, direction); err != nil {
+	if err = migrations.Slice(hash, -1, direction); err != nil {
 		return err
 	}
 

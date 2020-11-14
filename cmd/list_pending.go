@@ -21,6 +21,6 @@ cc7eff6ea9e68da4265bc834afda28f9a9db05a8 20201023_070000_g_o_solv-20201023_07000
 
 The output order will be from the oldest migration that hasn't been ran to the newest.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return listMigrations(lib.UP)
+		return listMigrations(lib.Up)
 	},
 }

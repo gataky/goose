@@ -31,7 +31,7 @@ Running "goose down 3" will run the last three migrations c, b and a
 
 If you want to remove all the migration you can run "goose down" and that will undo every migration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runMigration(args, lib.DOWN)
+		return runMigration(args, lib.Down)
 	},
 	Args: stepValidator,
 }

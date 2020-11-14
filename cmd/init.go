@@ -19,7 +19,7 @@ var initCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		err = db.CreateMigrationTable()
+		err = db.InitGoosey()
 		if err == nil {
 			fmt.Println("initialized successfully")
 		}

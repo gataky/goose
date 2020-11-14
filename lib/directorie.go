@@ -3,7 +3,6 @@ package lib
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os/exec"
 	"path/filepath"
@@ -18,8 +17,8 @@ import (
 type Direction int
 
 const (
-	DOWN Direction = iota
-	UP
+	Down Direction = iota
+	Up
 )
 
 var timeRegex *regexp.Regexp
@@ -49,8 +48,7 @@ type Migration struct {
 	Down Script
 
 	// Marker indicates if the migration is a stopping point in a batch migration
-	Marker   bool
-	Migrated bool
+	Marker bool
 }
 
 type Migrations []*Migration
@@ -59,17 +57,21 @@ func (m Migrations) Len() int           { return len(m) }
 func (m Migrations) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m Migrations) Less(i, j int) bool { return m[i].Index < m[j].Index }
 
-// NewMigrations creates a list of Migrations
+// NewMigrations creates a list of all Migrations in the repository.  This includes both executed
+// and pending migrations.
 func NewMigrations() Migrations {
 	path := viper.GetString("migration-path")
 	migrations := new(Migrations).List(path)
 	return migrations
 }
 
-// List returns a sorted list of Migrations in assending order based on time.
+// List returns a sorted list of Migrations in descending order based on commit time for the
+// repository at the given path.
 func (migrations Migrations) List(path string) Migrations {
 
-	cmd := exec.Command("git", "log", "--pretty=format:%H|%aD", "--name-status", "--diff-filter=A", "--reverse")
+	cmd := exec.Command(
+		"git", "log", "--pretty=format:%H|%aD", "--name-status", "--diff-filter=A", "--reverse",
+	)
 	cmd.Dir = path
 
 	stdout, err := cmd.StdoutPipe()
@@ -108,7 +110,7 @@ func (migrations Migrations) List(path string) Migrations {
 				MergedDate: merged_timestamp,
 				CreateDate: created_timestamp,
 				Author:     author,
-				direction:  UP,
+				direction:  Up,
 			},
 			Down: Script{
 				Hash:       hash,
@@ -116,7 +118,7 @@ func (migrations Migrations) List(path string) Migrations {
 				MergedDate: merged_timestamp,
 				CreateDate: created_timestamp,
 				Author:     author,
-				direction:  DOWN,
+				direction:  Down,
 			},
 		})
 		index += 1
@@ -152,43 +154,30 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
 	return time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", timestamp)
 }
 
-func (migrations *Migrations) Slice(markers map[string]bool) error {
-	indices := make([]int, 0, 2)
-	for i, m := range *migrations {
-		if _, found := markers[m.Hash]; found {
-			indices = append(indices, i)
-		}
-	}
-
-	if len(markers) == 1 {
-		indices = append(indices, len(*migrations))
-	}
-	*migrations = (*migrations)[indices[0]:indices[1]]
-	return nil
-}
-
-func (migrations *Migrations) Range(hash string, steps int, direction Direction) error {
+// Slice takes a starting hash and the number of steps relative to that hash to migrate to.
+// The slice of Migrations will be further sliced down to include only the migrations of interest.
+func (migrations *Migrations) Slice(hash string, steps int, direction Direction) error {
 	if steps == 0 {
 		steps = len(*migrations)
 	}
 
-	if hash == "" && direction == UP {
+	if hash == "" && direction == Up {
 		start := 0
-		stop := boundry(len(*migrations), 0, steps)
+		stop := boundary(len(*migrations), 0, steps)
 		*migrations = (*migrations)[start:stop]
 		return nil
-	} else if hash == "" && direction == DOWN {
+	} else if hash == "" && direction == Down {
 		return fmt.Errorf("no starting point found, nothing to do")
 	}
 
-	if direction == DOWN {
+	if direction == Down {
 		sort.Sort(sort.Reverse(*migrations))
 	}
 
 	for index, migration := range *migrations {
 		if migration.Hash == hash {
 			start := index + int(direction)
-			stop := boundry(len(*migrations), index+int(direction), steps)
+			stop := boundary(len(*migrations), index+int(direction), steps)
 			*migrations = (*migrations)[start:stop]
 			return nil
 		}
@@ -197,64 +186,31 @@ func (migrations *Migrations) Range(hash string, steps int, direction Direction)
 	return fmt.Errorf("can not find index for %s", hash)
 }
 
-func boundry(items, start, steps int) int {
+// boundary checks that our indices are within the bounds of the number of items in a slice.
+func boundary(items, start, steps int) int {
 	if start+steps >= items || steps == -1 {
 		return items
 	}
 	return start + steps
 }
 
-// Execute will execute the scripts in the range of start and stop
+// Execute will execute the scripts in the slice of migrations for a given direction
 func (migrations Migrations) Execute(direction Direction, db *DB) error {
 	var err error
 	last := len(migrations) - 1
 	for i, migration := range migrations {
-		if direction == UP {
+		if direction == Up {
+			fmt.Print("↑ ", migration.Hash)
 			err = migration.Up.Execute(db, i == last)
 		} else {
+			fmt.Print("↓ ", migration.Hash)
 			err = migration.Down.Execute(db, i == last)
 		}
 		if err != nil {
+			fmt.Println(" x")
 			return err
 		}
+		fmt.Println(" ✓")
 	}
 	return nil
-}
-
-// Script is the specific up or down script.
-type Script struct {
-	// Hash is the git commit hash for this migration
-	Hash string
-
-	// Path is the absolute path of the migration script
-	Path string
-
-	// MergedDate is the date the migration was committed to the repo
-	MergedDate time.Time
-
-	// CreateDate is the date the migration was created with the make command.
-	// This is the date the is part of the directory where the scripts reside
-	CreateDate time.Time
-
-	Author    string
-	direction Direction
-}
-
-func (s Script) Execute(db *DB, isLastMigration bool) error {
-	script, err := ioutil.ReadFile(s.Path)
-	if err != nil {
-		return err
-	}
-
-	err = db.RunScript(string(script))
-	if err != nil {
-		return fmt.Errorf("failed to execute script %s %s: %s", s.Hash, s.Path, err)
-	}
-
-	if s.direction == UP {
-		err = db.SetLastMigration(s, isLastMigration)
-	} else {
-		err = db.DelLastMigration(s.Hash, isLastMigration)
-	}
-	return err
 }
