@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/sir-wiggles/goose/lib"
 	"github.com/spf13/cobra"
 )
@@ -14,21 +16,25 @@ var listCmd = &cobra.Command{
 	Short: "List pending or executed migrations",
 }
 
-func listingData() (lib.Migrations, error) {
+func listMigrations(direction lib.Direction) error {
 	migrations := lib.NewMigrations()
 
 	db, err := lib.NewDatabase()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	currentMigration, err := db.GetHashForMarkerN(1)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err = migrations.Range(currentMigration, -1, lib.UP); err != nil {
-		return nil, err
+	if err = migrations.Range(currentMigration, -1, direction); err != nil {
+		return err
 	}
-	return migrations, nil
+
+	for _, d := range migrations {
+		fmt.Println(d.Hash, d.Path)
+	}
+	return nil
 }

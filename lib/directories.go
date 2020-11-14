@@ -34,7 +34,7 @@ func init() {
 
 // Migration has all the relative information needed to run up and down scripts.
 type Migration struct {
-	index int
+	Index int
 
 	// Path is the system path of where the migration scripts are located
 	Path string
@@ -57,16 +57,17 @@ type Migrations []*Migration
 
 func (m Migrations) Len() int           { return len(m) }
 func (m Migrations) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m Migrations) Less(i, j int) bool { return m[i].index < m[j].index }
+func (m Migrations) Less(i, j int) bool { return m[i].Index < m[j].Index }
 
 // NewMigrations creates a list of Migrations
 func NewMigrations() Migrations {
 	path := viper.GetString("migration-path")
-	return new(Migrations).List(path)
+	migrations := new(Migrations).List(path)
+	return migrations
 }
 
 // List returns a sorted list of Migrations in assending order based on time.
-func (ds Migrations) List(path string) Migrations {
+func (migrations Migrations) List(path string) Migrations {
 
 	cmd := exec.Command("git", "log", "--pretty=format:%H|%aD", "--name-status", "--diff-filter=A", "--reverse")
 	cmd.Dir = path
@@ -82,7 +83,6 @@ func (ds Migrations) List(path string) Migrations {
 
 	scanner := bufio.NewScanner(stdout)
 
-	migrations := make(Migrations, 0, 10)
 	index := 0
 	for scanner.Scan() {
 		hash_date := strings.Split(scanner.Text(), "|")
@@ -98,7 +98,7 @@ func (ds Migrations) List(path string) Migrations {
 		author, _ := parseAuthorFromPath(dir)
 
 		migrations = append(migrations, &Migration{
-			index:      index,
+			Index:      index,
 			Path:       dir,
 			Hash:       hash,
 			MergedDate: merged_timestamp,
@@ -120,6 +120,7 @@ func (ds Migrations) List(path string) Migrations {
 			},
 		})
 		index += 1
+
 		// move to the next block
 		for scanner.Scan() {
 			next := scanner.Text()
@@ -151,44 +152,44 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
 	return time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", timestamp)
 }
 
-func (ds *Migrations) Slice(markers map[string]bool) error {
+func (migrations *Migrations) Slice(markers map[string]bool) error {
 	indices := make([]int, 0, 2)
-	for i, m := range *ds {
+	for i, m := range *migrations {
 		if _, found := markers[m.Hash]; found {
 			indices = append(indices, i)
 		}
 	}
 
 	if len(markers) == 1 {
-		indices = append(indices, len(*ds))
+		indices = append(indices, len(*migrations))
 	}
-	*ds = (*ds)[indices[0]:indices[1]]
+	*migrations = (*migrations)[indices[0]:indices[1]]
 	return nil
 }
 
-func (ds *Migrations) Range(hash string, steps int, direction Direction) error {
+func (migrations *Migrations) Range(hash string, steps int, direction Direction) error {
 	if steps == 0 {
-		steps = len(*ds)
+		steps = len(*migrations)
 	}
 
 	if hash == "" && direction == UP {
 		start := 0
-		stop := boundry(len(*ds), 0, steps)
-		*ds = (*ds)[start:stop]
+		stop := boundry(len(*migrations), 0, steps)
+		*migrations = (*migrations)[start:stop]
 		return nil
 	} else if hash == "" && direction == DOWN {
 		return fmt.Errorf("no starting point found, nothing to do")
 	}
 
 	if direction == DOWN {
-		sort.Sort(sort.Reverse(*ds))
+		sort.Sort(sort.Reverse(*migrations))
 	}
 
-	for index, migration := range *ds {
+	for index, migration := range *migrations {
 		if migration.Hash == hash {
 			start := index + int(direction)
-			stop := boundry(len(*ds), index+int(direction), steps)
-			*ds = (*ds)[start:stop]
+			stop := boundry(len(*migrations), index+int(direction), steps)
+			*migrations = (*migrations)[start:stop]
 			return nil
 		}
 	}
@@ -204,30 +205,14 @@ func boundry(items, start, steps int) int {
 }
 
 // Execute will execute the scripts in the range of start and stop
-func (ds Migrations) Execute(direction Direction, db *DB) error {
+func (migrations Migrations) Execute(direction Direction, db *DB) error {
 	var err error
-	lastIndex := len(ds) - 1
-	for i, migration := range ds {
+	last := len(migrations) - 1
+	for i, migration := range migrations {
 		if direction == UP {
-			err = migration.Up.Execute(db, i == lastIndex)
+			err = migration.Up.Execute(db, i == last)
 		} else {
-			err = migration.Down.Execute(db, i == lastIndex)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (ds Migrations) Execute2(direction Direction, db *DB) error {
-	var err error
-	last := len(ds) - 1
-	for i, m := range ds {
-		if direction == UP {
-			err = m.Up.Execute(db, i == last)
-		} else {
-			err = m.Down.Execute(db, i == last)
+			err = migration.Down.Execute(db, i == last)
 		}
 		if err != nil {
 			return err
