@@ -139,7 +139,8 @@ func parseAuthorFromPath(path string) (string, error) {
 	if len(parts) <= 4 {
 		return "", fmt.Errorf("invalid directory structure")
 	}
-	return fmt.Sprintf("%s %s", parts[2], parts[3]), nil
+	author := strings.TrimSpace(fmt.Sprintf("%s %s", parts[2], parts[3]))
+	return author, nil
 }
 
 func parseTimeFromPath(path string) (time.Time, error) {
@@ -151,31 +152,45 @@ func parseTimeFromPath(path string) (time.Time, error) {
 }
 
 func parseTimeFromCommit(timestamp string) (time.Time, error) {
-	return time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", timestamp)
+	return time.Parse("Mon, 2 Jan 2006 15:04:05 -0700 ", timestamp)
 }
 
 // Slice takes a starting hash and the number of steps relative to that hash to migrate to.
 // The slice of Migrations will be further sliced down to include only the migrations of interest.
 func (migrations *Migrations) Slice(hash string, steps int, direction Direction) error {
+	// if there are no steps then migrate all the migrations
 	if steps == 0 {
 		steps = len(*migrations)
 	}
 
+	// no hash and up implies that this is the initial migration so start
+	// at the beginning and migrations steps.
 	if hash == "" && direction == Up {
 		start := 0
 		stop := boundary(len(*migrations), 0, steps)
 		*migrations = (*migrations)[start:stop]
 		return nil
+		// no hash and down implies empty database and nowhere to go from here.
 	} else if hash == "" && direction == Down {
 		return fmt.Errorf("no starting point found, nothing to do")
 	}
 
+	// when migrating down we want to reverse the list as this helps keep
+	// indexing simpler
 	if direction == Down {
 		sort.Sort(sort.Reverse(*migrations))
 	}
 
 	for index, migration := range *migrations {
 		if migration.Hash == hash {
+			// the start position for up should be the found index +1 because
+			// we don't want to the last migration again; however if it's down
+			// start should be index +0 because we need to run that down script
+			// up 2 from d:  a b c d e f g
+			//                     ^ + +
+			// down 2 from d:    - -
+			// index + int(direction) works here because int(Up) == 1
+			// and int(Down) == 0
 			start := index + int(direction)
 			stop := boundary(len(*migrations), index+int(direction), steps)
 			*migrations = (*migrations)[start:stop]
