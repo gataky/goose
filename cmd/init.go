@@ -12,7 +12,7 @@ func init() {
 }
 
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init [commit hash]",
 	Short: "Initializes a migration table in the database called goosey",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -26,7 +26,7 @@ type templateValues struct {
 var templateType string
 
 var makeCmd = &cobra.Command{
-	Use:   "make (first_name) (last_name) (message)",
+	Use:   "make {first_name} {last_name} {message}",
 	Short: "Make a new migration",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
