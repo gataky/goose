@@ -1,7 +1,7 @@
 package main
 
-import "github.com/sir-wiggles/goose/cmd"
+import "github.com/sir-wiggles/goose/lib"
 
 func main() {
-	cmd.Execute()
+	lib.Execute()
 }
