@@ -24,12 +24,12 @@ func listMigrations(direction lib.Direction) error {
 		return err
 	}
 
-	hash, _, err := db.LastMarker()
+	batch, err := db.LastBatch()
 	if err != nil {
 		return err
 	}
 
-	if err = migrations.Slice(hash, -1, direction); err != nil {
+	if err = migrations.Slice(batch.Batch, -1, direction); err != nil {
 		return err
 	}
 

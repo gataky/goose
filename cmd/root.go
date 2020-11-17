@@ -64,16 +64,16 @@ func runMigration(args []string, direction lib.Direction) error {
 
 	migrations := lib.NewMigrations()
 
-	hash, _, err := db.LastMarker()
-	if err != nil {
+	batch, err := db.LastBatch()
+	if err != nil && err.Error() != "sql: no rows in result set" {
 		return err
 	}
 
-	if err = migrations.Slice(hash, steps, direction); err != nil {
+	if err = migrations.Slice(batch.Hash, steps, direction); err != nil {
 		return err
 	}
 
-	if err := migrations.Execute(direction, db); err != nil {
+	if err := migrations.Execute(direction, db, batch.Exclude); err != nil {
 		return err
 	}
 	return nil

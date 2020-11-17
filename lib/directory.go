@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/speps/go-hashids"
 	"github.com/spf13/viper"
 )
 
@@ -31,7 +32,9 @@ func init() {
 	}
 }
 
-// Migration has all the relative information needed to run up and down scripts.
+/*
+ * Migration has all the relative information needed to run up and down scripts.
+ */
 type Migration struct {
 	Index int
 
@@ -47,8 +50,8 @@ type Migration struct {
 	Up   Script
 	Down Script
 
-	// Marker indicates if the migration is a stopping point in a batch migration
-	Marker bool
+	// Marker indicates if the migration is a stopping point in a batch
+	Marker string
 }
 
 type Migrations []*Migration
@@ -57,16 +60,20 @@ func (m Migrations) Len() int           { return len(m) }
 func (m Migrations) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m Migrations) Less(i, j int) bool { return m[i].Index < m[j].Index }
 
-// NewMigrations creates a list of all Migrations in the repository.  This includes both executed
-// and pending migrations.
+/*
+ * NewMigrations creates a list of all Migrations in the repository.  This
+ * includes both executed and pending migrations.
+ */
 func NewMigrations() Migrations {
 	path := viper.GetString("migration-path")
 	migrations := new(Migrations).List(path)
 	return migrations
 }
 
-// List returns a sorted list of Migrations in descending order based on commit time for the
-// repository at the given path.
+/*
+ * List returns a sorted list of Migrations in descending order based on commit
+ * time for the repository at the given path.
+ */
 func (migrations Migrations) List(path string) Migrations {
 
 	cmd := exec.Command(
@@ -155,8 +162,11 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
 	return time.Parse("Mon, 2 Jan 2006 15:04:05 -0700 ", timestamp)
 }
 
-// Slice takes a starting hash and the number of steps relative to that hash to migrate to.
-// The slice of Migrations will be further sliced down to include only the migrations of interest.
+/*
+ * Slice takes a starting hash and the number of steps relative to that hash to
+ * migrate to. The slice of Migrations will be further sliced down to include
+ * only the migrations of interest.
+ */
 func (migrations *Migrations) Slice(hash string, steps int, direction Direction) error {
 	// if there are no steps then migrate all the migrations
 	if steps == 0 {
@@ -201,7 +211,10 @@ func (migrations *Migrations) Slice(hash string, steps int, direction Direction)
 	return fmt.Errorf("can not find index for %s", hash)
 }
 
-// boundary checks that our indices are within the bounds of the number of items in a slice.
+/*
+ * boundary checks that our indices are within the bounds of the number of items
+ * in a slice.
+ */
 func boundary(items, start, steps int) int {
 	if start+steps >= items || steps == -1 {
 		return items
@@ -209,17 +222,25 @@ func boundary(items, start, steps int) int {
 	return start + steps
 }
 
-// Execute will execute the scripts in the slice of migrations for a given direction
-func (migrations Migrations) Execute(direction Direction, db *DB) error {
+/*
+ * Execute will execute the scripts in the slice of migrations for a given
+ * direction
+ */
+func (migrations Migrations) Execute(direction Direction, db *DB, exclude string) error {
 	var err error
-	last := len(migrations) - 1
-	for i, migration := range migrations {
+	batch := batchHash()
+	for _, migration := range migrations {
+		if migration.Hash == exclude {
+			fmt.Println("#")
+			return nil
+		}
 		if direction == Up {
 			fmt.Print("↑ ", migration.Hash)
-			err = migration.Up.Execute(db, i == last)
+			migration.Up.Batch = batch
+			err = migration.Up.Execute(db)
 		} else {
 			fmt.Print("↓ ", migration.Hash)
-			err = migration.Down.Execute(db, i == last)
+			err = migration.Down.Execute(db)
 		}
 		if err != nil {
 			fmt.Println(" x")
@@ -228,4 +249,13 @@ func (migrations Migrations) Execute(direction Direction, db *DB) error {
 		fmt.Println(" ✓")
 	}
 	return nil
+}
+
+func batchHash() string {
+	hd := hashids.NewData()
+	hd.Salt = "goosey"
+	hd.MinLength = 6
+	h, _ := hashids.NewWithData(hd)
+	e, _ := h.EncodeInt64([]int64{time.Now().Unix()})
+	return e
 }

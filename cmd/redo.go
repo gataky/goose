@@ -21,7 +21,7 @@ var redoCmd = &cobra.Command{
 			return err
 		}
 
-		hash, steps, err := db.LastMarker()
+		batch, err := db.LastBatch()
 		if err != nil {
 			return err
 		}
@@ -29,17 +29,17 @@ var redoCmd = &cobra.Command{
 		migrations := lib.NewMigrations()
 		sort.Sort(sort.Reverse(migrations))
 
-		if err = migrations.Slice(hash, steps, lib.Down); err != nil {
+		if err = migrations.Slice(batch.Batch, batch.Steps, lib.Down); err != nil {
 			return err
 		}
 
-		if err := migrations.Execute(lib.Down, db); err != nil {
+		if err := migrations.Execute(lib.Down, db, batch.Exclude); err != nil {
 			return err
 		}
 
 		sort.Sort(migrations)
 
-		if err := migrations.Execute(lib.Up, db); err != nil {
+		if err := migrations.Execute(lib.Up, db, batch.Exclude); err != nil {
 			return err
 		}
 		return nil

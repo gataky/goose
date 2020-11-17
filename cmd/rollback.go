@@ -46,7 +46,7 @@ To rollback to c run "goose rollback" which will put us in this state
 			return err
 		}
 
-		hash, steps, err := db.LastMarker()
+		batch, err := db.LastBatch()
 		if err != nil {
 			return err
 		}
@@ -54,12 +54,12 @@ To rollback to c run "goose rollback" which will put us in this state
 		migrations := lib.NewMigrations()
 		sort.Sort(sort.Reverse(migrations))
 
-		err = migrations.Slice(hash, steps, lib.Down)
+		err = migrations.Slice(batch.Hash, batch.Steps, lib.Down)
 		if err != nil {
 			return err
 		}
 
-		if err := migrations.Execute(lib.Down, db); err != nil {
+		if err := migrations.Execute(lib.Down, db, batch.Exclude); err != nil {
 			return err
 		}
 		return nil
