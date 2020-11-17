@@ -26,7 +26,7 @@ type Script struct {
 	CreateDate time.Time
 
 	Author    string
-	direction Direction
+	direction int
 }
 
 /*

@@ -16,7 +16,7 @@ var listCmd = &cobra.Command{
 	Short: "List pending or executed migrations",
 }
 
-func listMigrations(direction lib.Direction) error {
+func listMigrations(direction int) error {
 	migrations := lib.NewMigrations()
 
 	db, err := lib.NewDatabase()

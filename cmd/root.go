@@ -50,7 +50,7 @@ func stepValidator(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runMigration(args []string, direction lib.Direction) error {
+func runMigration(args []string, direction int) error {
 
 	var steps int
 	if len(args) > 0 {

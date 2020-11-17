@@ -15,10 +15,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Direction int
-
 const (
-	Down Direction = iota
+	Down int = iota
 	Up
 )
 
@@ -167,7 +165,7 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
  * migrate to. The slice of Migrations will be further sliced down to include
  * only the migrations of interest.
  */
-func (migrations *Migrations) Slice(hash string, steps int, direction Direction) error {
+func (migrations *Migrations) Slice(hash string, steps, direction int) error {
 	// if there are no steps then migrate all the migrations
 	if steps == 0 {
 		steps = len(*migrations)
@@ -226,7 +224,7 @@ func boundary(items, start, steps int) int {
  * Execute will execute the scripts in the slice of migrations for a given
  * direction
  */
-func (migrations Migrations) Execute(direction Direction, db *DB, exclude string) error {
+func (migrations Migrations) Execute(direction int, db *DB, exclude string) error {
 	var err error
 	batch := batchHash()
 	for _, migration := range migrations {
