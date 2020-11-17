@@ -29,7 +29,7 @@ var redoCmd = &cobra.Command{
 		migrations := lib.NewMigrations()
 		sort.Sort(sort.Reverse(migrations))
 
-		if err = migrations.Slice(batch.Batch, batch.Steps, lib.Down); err != nil {
+		if err = migrations.Slice(batch.Hash, batch.Steps, lib.Down); err != nil {
 			return err
 		}
 
