@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/sir-wiggles/goose/lib"
@@ -21,6 +22,12 @@ var rootCmd = &cobra.Command{
 	SilenceUsage: true,
 }
 
+var (
+	db         *lib.DB
+	batch      *lib.BatchInfo
+	migrations lib.Migrations
+)
+
 // Execute will run cobra cli
 func Execute() error {
 	return rootCmd.Execute()
@@ -35,6 +42,23 @@ func initConfig() {
 	if err != nil {               // Handle errors reading the config file
 		panic(fmt.Errorf("fatal error config file: %s", err))
 	}
+
+	initDependancies()
+}
+
+func initDependancies() {
+	var err error
+	db, err = lib.NewDatabase()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	batch, err = db.LastBatch()
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		log.Fatal(err)
+	}
+
+	migrations = lib.NewMigrations()
 }
 
 func stepValidator(cmd *cobra.Command, args []string) error {
@@ -57,19 +81,7 @@ func runMigration(args []string, direction int) error {
 		steps, _ = strconv.Atoi(args[0])
 	}
 
-	db, err := lib.NewDatabase()
-	if err != nil {
-		return err
-	}
-
-	migrations := lib.NewMigrations()
-
-	batch, err := db.LastBatch()
-	if err != nil && err.Error() != "sql: no rows in result set" {
-		return err
-	}
-
-	if err = migrations.Slice(batch.Hash, steps, direction); err != nil {
+	if err := migrations.Slice(batch.Hash, steps, direction); err != nil {
 		return err
 	}
 

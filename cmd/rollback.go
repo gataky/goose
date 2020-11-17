@@ -41,20 +41,10 @@ To rollback to c run "goose rollback" which will put us in this state
 | e0ca0a9d0afe2d168ed09efe2f859f76bcfd109f | c o      | True     |
 +------------------------------------------+----------+----------+ `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := lib.NewDatabase()
-		if err != nil {
-			return err
-		}
 
-		batch, err := db.LastBatch()
-		if err != nil {
-			return err
-		}
-
-		migrations := lib.NewMigrations()
 		sort.Sort(sort.Reverse(migrations))
 
-		err = migrations.Slice(batch.Hash, batch.Steps, lib.Down)
+		err := migrations.Slice(batch.Hash, batch.Steps, lib.Down)
 		if err != nil {
 			return err
 		}

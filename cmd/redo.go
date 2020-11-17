@@ -16,20 +16,10 @@ var redoCmd = &cobra.Command{
 	Short: "Rollback to the last marker and reapply to the current marker",
 	Long:  `If you want to rollback and reapply that batch, "goose redo" will do that for you.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := lib.NewDatabase()
-		if err != nil {
-			return err
-		}
 
-		batch, err := db.LastBatch()
-		if err != nil {
-			return err
-		}
-
-		migrations := lib.NewMigrations()
 		sort.Sort(sort.Reverse(migrations))
 
-		if err = migrations.Slice(batch.Hash, batch.Steps, lib.Down); err != nil {
+		if err := migrations.Slice(batch.Hash, batch.Steps, lib.Down); err != nil {
 			return err
 		}
 

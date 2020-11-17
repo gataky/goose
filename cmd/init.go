@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sir-wiggles/goose/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -22,14 +21,10 @@ var initCmd = &cobra.Command{
 			start = args[0]
 		}
 
-		db, err := lib.NewDatabase()
-		if err != nil {
+		if err := db.InitGoosey(start); err != nil {
 			return err
 		}
-		err = db.InitGoosey(start)
-		if err == nil {
-			fmt.Println("initialized successfully")
-		}
-		return err
+		fmt.Println("initialized successfully")
+		return nil
 	},
 }

@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sir-wiggles/goose/lib"
 	"github.com/spf13/cobra"
 )
 
@@ -17,19 +16,8 @@ var listCmd = &cobra.Command{
 }
 
 func listMigrations(direction int) error {
-	migrations := lib.NewMigrations()
 
-	db, err := lib.NewDatabase()
-	if err != nil {
-		return err
-	}
-
-	batch, err := db.LastBatch()
-	if err != nil {
-		return err
-	}
-
-	if err = migrations.Slice(batch.Batch, -1, direction); err != nil {
+	if err := migrations.Slice(batch.Batch, -1, direction); err != nil {
 		return err
 	}
 
