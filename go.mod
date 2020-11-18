@@ -3,6 +3,7 @@ module github.com/sir-wiggles/goose
 go 1.15
 
 require (
+	github.com/fatih/color v1.10.0
 	github.com/lib/pq v1.8.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/speps/go-hashids v2.0.0+incompatible

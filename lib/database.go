@@ -20,26 +20,11 @@ func NewDatabase() (*DB, error) {
 	return &DB{db}, db.Ping()
 }
 
-type BatchInfo struct {
-	// The hash where the marker is true for the batch
-	Batch string
-
-	// Number of steps to the next batch
-	Steps int
-
-	// Hash to exclude. Used in cases where the database was initialized
-	// with a hash.
-	Exclude string
-
-	// The starting point for the batch
-	Hash string
-}
-
 /*
  * LastBatch will return the last marker and the number of steps to the
  * marker before that.
  */
-func (db DB) LastBatch() (*BatchInfo, error) {
+func (db DB) LastBatch(instructions *Instructions) error {
 	var batch string
 	var hash string
 	var steps int
@@ -67,26 +52,34 @@ func (db DB) LastBatch() (*BatchInfo, error) {
 		ORDER BY id DESC;
 	`)
 	if err != nil {
-		return &BatchInfo{}, err
+		return err
 	}
-	batches := make([]*BatchInfo, 0, 2)
+	batches := make([]*Instructions, 0, 2)
 	for i := 0; rows.Next(); i++ {
 		if err = rows.Scan(&batch, &hash, &steps, &rowid); err != nil {
-			return nil, err
+			return err
 		}
-		batches = append(batches, &BatchInfo{
-			Batch: batch,
-			Hash:  hash,
-			Steps: steps,
+		batches = append(batches, &Instructions{
+			BatchHash: batch,
+			LastHash:  hash,
+			Steps:     steps,
 		})
 	}
-	if len(batches) > 0 && batches[1].Batch == "" {
-		batches[0].Exclude = batches[1].Hash
-		return batches[0], err
-	} else if len(batches) > 0 {
-		return batches[0], err
+
+	if len(batches) > 0 {
+		switch instructions.Action {
+		case pending, executed:
+			instructions.Steps = -1
+		case rollback, redo, down:
+			instructions.Steps = batches[0].Steps
+		}
+
+		instructions.LastHash = batches[0].LastHash
+		if batches[1].BatchHash == "" {
+			instructions.ExcludeHash = batches[1].LastHash
+		}
 	}
-	return &BatchInfo{}, err
+	return err
 }
 
 /*
