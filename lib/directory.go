@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/speps/go-hashids"
 	"github.com/spf13/viper"
 )
@@ -165,8 +166,14 @@ func parseTimeFromCommit(timestamp string) (time.Time, error) {
  * migrate to. The slice of Migrations will be further sliced down to include
  * only the migrations of interest.
  */
-func (migrations *Migrations) Slice(hash string, steps, direction int) error {
+func (migrations *Migrations) Slice(instructions *Instructions) error {
 	// if there are no steps then migrate all the migrations
+	var (
+		direction = instructions.Direction
+		hash      = instructions.LastHash
+		steps     = instructions.Steps
+	)
+
 	if steps == 0 {
 		steps = len(*migrations)
 	}
@@ -174,18 +181,13 @@ func (migrations *Migrations) Slice(hash string, steps, direction int) error {
 	// no hash and up implies that this is the initial migration so start
 	// at the beginning and migrations steps.
 	if hash == "" && direction == Up {
-		start := 0
-		stop := boundary(len(*migrations), 0, steps)
+		start, stop := 0, boundary(len(*migrations), 0, steps)
 		*migrations = (*migrations)[start:stop]
 		return nil
 		// no hash and down implies empty database and nowhere to go from here.
 	} else if hash == "" && direction == Down {
 		return fmt.Errorf("no starting point found, nothing to do")
-	}
-
-	// when migrating down we want to reverse the list as this helps keep
-	// indexing simpler
-	if direction == Down {
+	} else if direction == Down {
 		sort.Sort(sort.Reverse(*migrations))
 	}
 
@@ -199,7 +201,7 @@ func (migrations *Migrations) Slice(hash string, steps, direction int) error {
 			// down 2 from d:    - -
 			// index + int(direction) works here because int(Up) == 1
 			// and int(Down) == 0
-			start := index + int(direction)
+			start := index + direction
 			stop := boundary(len(*migrations), index+int(direction), steps)
 			*migrations = (*migrations)[start:stop]
 			return nil
@@ -220,31 +222,37 @@ func boundary(items, start, steps int) int {
 	return start + steps
 }
 
+var red = color.New(color.FgRed).PrintfFunc()
+var yellow = color.New(color.FgYellow).PrintfFunc()
+var green = color.New(color.FgGreen).PrintfFunc()
+var blue = color.New(color.FgBlue).PrintfFunc()
+var cyan = color.New(color.FgCyan).PrintfFunc()
+
 /*
  * Execute will execute the scripts in the slice of migrations for a given
  * direction
  */
-func (migrations Migrations) Execute(direction int, db *DB, exclude string) error {
+func (migrations Migrations) Execute(instructions *Instructions) error {
 	var err error
 	batch := batchHash()
 	for _, migration := range migrations {
-		if migration.Hash == exclude {
+		if migration.Hash == instructions.ExcludeHash {
 			fmt.Println("#")
 			return nil
 		}
-		if direction == Up {
-			fmt.Print("↑ ", migration.Hash)
+		if instructions.Direction == Up {
+			green("↑ %s", migration.Hash)
 			migration.Up.Batch = batch
 			err = migration.Up.Execute(db)
 		} else {
-			fmt.Print("↓ ", migration.Hash)
+			yellow("↓ %s", migration.Hash)
 			err = migration.Down.Execute(db)
 		}
 		if err != nil {
-			fmt.Println(" x")
+			red(" x\n")
 			return err
 		}
-		fmt.Println(" ✓")
+		fmt.Printf(" ✓\n")
 	}
 	return nil
 }
