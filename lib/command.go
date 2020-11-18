@@ -211,6 +211,9 @@ var upCmd = &cobra.Command{
 		}
 
 		if err := migrations.Slice(instructions); err != nil {
+			if err.Error() == "no marker" {
+				return nil
+			}
 			return err
 		}
 
@@ -233,6 +236,9 @@ var downCmd = &cobra.Command{
 		}
 
 		if err := migrations.Slice(instructions); err != nil {
+			if err.Error() == "no marker" {
+				return nil
+			}
 			return err
 		}
 
@@ -260,6 +266,9 @@ var listExecutedCmd = &cobra.Command{
 		}
 
 		if err := migrations.Slice(instructions); err != nil {
+			if err.Error() == "no marker" {
+				return nil
+			}
 			return err
 		}
 
@@ -281,6 +290,9 @@ var listPendingCmd = &cobra.Command{
 		}
 
 		if err := migrations.Slice(instructions); err != nil {
+			if err.Error() == "no marker" {
+				return nil
+			}
 			return err
 		}
 
@@ -304,6 +316,9 @@ var redoCmd = &cobra.Command{
 		sort.Sort(sort.Reverse(migrations))
 
 		if err := migrations.Slice(instructions); err != nil {
+			if err.Error() == "no marker" {
+				return nil
+			}
 			return err
 		}
 
@@ -332,9 +347,10 @@ var rollbackCmd = &cobra.Command{
 		}
 		sort.Sort(sort.Reverse(migrations))
 
-		err := migrations.Slice(instructions)
-		if err != nil {
-			return err
+		if err := migrations.Slice(instructions); err != nil {
+			if err.Error() == "no marker" {
+				return nil
+			}
 		}
 
 		if err := migrations.Execute(instructions); err != nil {

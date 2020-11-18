@@ -186,7 +186,7 @@ func (migrations *Migrations) Slice(instructions *Instructions) error {
 		return nil
 		// no hash and down implies empty database and nowhere to go from here.
 	} else if hash == "" && direction == Down {
-		return fmt.Errorf("no starting point found, nothing to do")
+		return fmt.Errorf("no marker")
 	} else if direction == Down {
 		sort.Sort(sort.Reverse(*migrations))
 	}
