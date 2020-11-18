@@ -24,6 +24,7 @@ var (
 	db         *DB
 	batch      *BatchInfo
 	migrations Migrations
+	err        error
 )
 
 func init() {
@@ -66,11 +67,6 @@ func initDependancies() {
 		log.Fatal(err)
 	}
 
-	batch, err = db.LastBatch()
-	if err != nil && err.Error() != "sql: no rows in result set" {
-		log.Fatal(err)
-	}
-
 	migrations = NewMigrations()
 }
 
@@ -97,6 +93,11 @@ func runMigration(args []string, direction int) error {
 	var steps int
 	if len(args) > 0 {
 		steps, _ = strconv.Atoi(args[0])
+	}
+
+	batch, err = db.LastBatch()
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		log.Fatal(err)
 	}
 
 	if err := migrations.Slice(batch.Hash, steps, direction); err != nil {
@@ -350,6 +351,11 @@ var listCmd = &cobra.Command{
 
 func listMigrations(direction int) error {
 
+	batch, err = db.LastBatch()
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		log.Fatal(err)
+	}
+
 	if err := migrations.Slice(batch.Batch, -1, direction); err != nil {
 		return err
 	}
@@ -451,6 +457,10 @@ To rollback to c run "goose rollback" which will put us in this state
 +------------------------------------------+----------+----------+ `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
+		batch, err = db.LastBatch()
+		if err != nil && err.Error() != "sql: no rows in result set" {
+			log.Fatal(err)
+		}
 		sort.Sort(sort.Reverse(migrations))
 
 		err := migrations.Slice(batch.Hash, batch.Steps, Down)
