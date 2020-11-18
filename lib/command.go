@@ -360,7 +360,7 @@ var rollbackCmd = &cobra.Command{
 	},
 }
 
-type templateValues struct {
+type Values struct {
 	Migration string
 	Author    string
 	Directory string
@@ -389,7 +389,7 @@ var makeCmd = &cobra.Command{
 			return err
 		}
 
-		values := templateValues{
+		values := Values{
 			Migration: migration,
 			Author:    author,
 			Directory: directory,
@@ -408,11 +408,9 @@ var makeCmd = &cobra.Command{
 	Args: cobra.ExactArgs(3),
 }
 
-func script(
-	templates map[string]interface{}, values templateValues, fname string,
-) error {
+func script(tmpls map[string]interface{}, values Values, fname string) error {
 
-	t, err := template.New("new").Parse(templates[fname].(string))
+	t, err := template.New("new").Parse(tmpls[fname].(string))
 	if err != nil {
 		return err
 	}
