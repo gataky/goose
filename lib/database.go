@@ -70,7 +70,7 @@ func (db DB) LastBatch(instructions *Instructions) error {
 		switch instructions.Action {
 		case pending, executed:
 			instructions.Steps = -1
-		case rollback, redo, down:
+		case rollback, redo:
 			instructions.Steps = batches[0].Steps
 		}
 
