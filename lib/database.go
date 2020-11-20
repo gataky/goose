@@ -68,7 +68,7 @@ func (db DB) LastBatch(instructions *Instructions) error {
 
 	if len(batches) > 0 {
 		switch instructions.Action {
-		case pending, executed:
+		case pending:
 			instructions.Steps = -1
 		case rollback, redo:
 			instructions.Steps = batches[0].Steps

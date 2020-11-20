@@ -163,7 +163,7 @@ var listExecutedCmd = &cobra.Command{
 	Use:   "executed",
 	Short: "List all executed migrations",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		instructions = NewInstructions(executed)
+		instructions = NewInstructions(executed, []string{"10"}...)
 		err = db.LastBatch(instructions)
 		if err != nil && err.Error() != "sql: no rows in result set" {
 			log.Fatal(err)
