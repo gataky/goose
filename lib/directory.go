@@ -64,7 +64,7 @@ func (m Migrations) Less(i, j int) bool { return m[i].Index < m[j].Index }
  * includes both executed and pending migrations.
  */
 func NewMigrations() Migrations {
-	path := viper.GetString("migration-path")
+	path := viper.GetString("migration-repository")
 	migrations := new(Migrations).List(path)
 	return migrations
 }
@@ -74,7 +74,6 @@ func NewMigrations() Migrations {
  * time for the repository at the given path.
  */
 func (migrations Migrations) List(path string) Migrations {
-
 	cmd := exec.Command(
 		"git", "log", "--pretty=format:%H|%aD", "--name-status", "--diff-filter=A", "--reverse",
 	)
@@ -138,6 +137,32 @@ func (migrations Migrations) List(path string) Migrations {
 		}
 	}
 	return migrations
+}
+
+func listUncommitted(path string) Migrations {
+
+	cmd := exec.Command(
+		"git", "ls-files", "--others", "--exclude-standard", "--directory",
+	)
+	cmd.Dir = path
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	return nil
+
+	for scanner.Scan() {
+		scanner.Text()
+	}
+
+	return nil
 }
 
 func parseAuthorFromPath(path string) (string, error) {

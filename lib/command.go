@@ -283,7 +283,11 @@ var makeCmd = &cobra.Command{
 		migration := fmt.Sprintf("%s_%s_%s_%s",
 			timestamp, args[0], args[1], args[2])
 		directory := filepath.Join(
-			viper.GetString("migration-path"), migration)
+			viper.GetString("migration-repository"),
+			viper.GetString("migration-directory"),
+			migration,
+		)
+		fmt.Println(directory)
 		author := fmt.Sprintf("%s %s", args[0], args[1])
 
 		templates := viper.GetStringMap(

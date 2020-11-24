@@ -1,5 +1,6 @@
 database-url: postgres://user:pass@localhost:5432/db?sslmode=disable
-migration-path: /home/jeff/Documents/migrations/
+migration-repository: /home/jeff/Documents/migrations
+migration-directory: migrations
 
 templates:
   schema: 
