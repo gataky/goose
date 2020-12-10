@@ -1,3 +1,8 @@
+Install
+======
+
+`go get -v github.com/sir-wiggles/goose`
+
 About
 =====
 
