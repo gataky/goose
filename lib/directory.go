@@ -274,10 +274,8 @@ func (migrations Migrations) Execute(instructions *Instructions) error {
 			err = migration.Down.Execute(db)
 		}
 		if err != nil {
-			red(" x\n")
 			return err
 		}
-		fmt.Printf(" ✓\n")
 	}
 	return nil
 }

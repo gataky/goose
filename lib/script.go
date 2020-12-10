@@ -1,8 +1,11 @@
 package lib
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -47,7 +50,9 @@ func (s Script) Execute(db *DB) error {
 
 	err = db.RunScript(string(script))
 	if err != nil {
-		return fmt.Errorf("err: execute script %s %s: %s", s.Hash, s.Path, err)
+		if !isErrorAcceptable(s.Path, err) {
+			return fmt.Errorf("err: execute script %s %s: %s", s.Hash, s.Path, err)
+		}
 	}
 
 	if s.direction == Up {
@@ -56,4 +61,21 @@ func (s Script) Execute(db *DB) error {
 		err = db.DeleteLastMigration(s.Hash)
 	}
 	return err
+}
+
+func isErrorAcceptable(file string, err error) bool {
+	fmt.Println("")
+	yellow(file)
+	fmt.Println("")
+	red(err.Error())
+	fmt.Printf("\nwould you like to continue without applying this file? y/n ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	if strings.ToLower(strings.TrimSpace(answer)) == "y" {
+		return true
+	}
+	return false
 }
