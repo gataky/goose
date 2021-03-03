@@ -30,23 +30,23 @@ func (db DB) LastBatch(instructions *Instructions) error {
 	var steps int
 	var rowid int
 	rows, err := db.Query(`
-		( SELECT 
+		( SELECT
 			a.batch, a.hash, b.steps, a.id
-		FROM goosey AS a JOIN ( 
-			SELECT 
+		FROM goosey AS a JOIN (
+			SELECT
 				MAX (id) id, batch, COUNT(batch) steps
 			FROM goosey GROUP BY batch
-		) AS b 
+		) AS b
 			ON a.id = b.id
 			ORDER BY a.executed_at DESC LIMIT 1 )
 		UNION ALL
-		( SELECT 
+		( SELECT
 			a.batch, a.hash, b.steps, a.id
-		FROM goosey AS a JOIN ( 
-			SELECT 
+		FROM goosey AS a JOIN (
+			SELECT
 				MAX (id) id, batch, COUNT(batch) steps
 			FROM goosey GROUP BY batch
-		) AS b 
+		) AS b
 			ON a.id = b.id
 			ORDER BY a.executed_at ASC LIMIT 1 )
 		ORDER BY id DESC;
@@ -89,9 +89,9 @@ func (db DB) LastBatch(instructions *Instructions) error {
 func (db DB) InsertLastMigration(script Script) error {
 	_, err := db.Exec(`
 		INSERT INTO goosey (
-			created_at, merged_at, hash, author, batch
-		) VALUES ($1, $2, $3, $4, $5)
-	`, script.CreateDate, script.MergedDate, script.Hash, script.Author, script.Batch)
+			merged_at, hash, author, batch
+		) VALUES ($1, $2, $3, $4)
+	`, script.MergedDate, script.Hash, script.Author, script.Batch)
 	return err
 }
 
@@ -151,8 +151,8 @@ func (db DB) InitGoosey(start string) error {
 
 	if len(start) > 0 {
 		_, err = tx.Exec(`
-			INSERT INTO goosey 
-				(hash, batch) 
+			INSERT INTO goosey
+				(hash, batch)
 			VALUES ($1, $2)
 		`, start, "")
 	}

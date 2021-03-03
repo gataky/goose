@@ -50,9 +50,11 @@ func (s Script) Execute(db *DB) error {
 
 	err = db.RunScript(string(script))
 	if err != nil {
-		if !isErrorAcceptable(s.Path, err) {
-			return fmt.Errorf("err: execute script %s %s: %s", s.Hash, s.Path, err)
-		}
+		// if there was a transaction and it failed then we need to rollback
+		db.RunScript(`rollback`)
+		//if !isErrorAcceptable(s.Path, err) {
+		//    return fmt.Errorf("err: execute script %s %s: %s", s.Hash, s.Path, err)
+		//}
 	}
 
 	if s.direction == Up {

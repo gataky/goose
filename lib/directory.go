@@ -266,11 +266,11 @@ func (migrations Migrations) Execute(instructions *Instructions) error {
 			return nil
 		}
 		if instructions.Direction == Up {
-			green("↑ %s", migration.Hash)
+			green("↑ %s\n", migration.Hash)
 			migration.Up.Batch = batch
 			err = migration.Up.Execute(db)
 		} else {
-			yellow("↓ %s", migration.Hash)
+			yellow("↓ %s\n", migration.Hash)
 			err = migration.Down.Execute(db)
 		}
 		if err != nil {
