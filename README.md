@@ -1,3 +1,10 @@
+
+Note
+====
+
+I only use the for development.  This should not be ran on remote databases.
+
+
 Install
 ======
 
@@ -38,7 +45,7 @@ A       20201023_070000_g_o_solv-20201023_070000_g/down.sql
 A       20201023_070000_g_o_solv-20201023_070000_g/up.sql
 ```
 
-Goose will parse this output and apply the migration in a top down approach. 
+Goose will parse this output and apply the migration in a top down approach.
 
 Terms
 =====
@@ -51,41 +58,58 @@ Terms
 Initialization
 ==============
 
-Goose keeps track of the migrations ran in a table called goosey in your database. To initialize this table you'll need to run `goose init` which will create a table that has six important fields:
-* created_at : The time a migration was made. This information is encoded in the directory name
-* merged_at  : The time a migration was committed with the repository
-* executed_at: The time a migration was ran against the database
-* hash       : The commit hash of when these files were added to the repository
-* author     : The author of a migration. This information is encoded in the directory name
-* batch      : The batch that this migration relates to
+Goose keeps track of the migrations ran in a table called goosey in your database. To initialize this table you'll need to run `goose init` which will create a table that keeps track of the migrations.
 
-Making a new migration
-======================
+You can also initialize goose with a starting commit hash `goose init a1b2c3...`.
 
-To make a migration run "goose make (firstname) (lastname) (message)" this will create directory with the format yyyymmdd_hhmmss_firstname_lastname_message and in that directory two files, up.sql and down.sql, will be created where you'll write your SQL scripts. Other files added do these directories will be ignored by goose.
+Config
+======
 
-The structure of your migration directory will look like 
+Put a `.goose.yaml` file in your home director with the folling content. The first three are fields are required. `templates` is still a work in progress.
+
 ```
-.
-├── 20201023_010000_a_o_solv-20201023_010000_a
-│   ├── down.sql
-│   └── up.sql
-├── 20201023_020000_b_o_solv-20201023_020000_b
-│   ├── down.sql
-│   └── up.sql
-├── 20201023_030000_c_o_solv-20201023_030000_c
-│   ├── down.sql
-│   └── up.sql
-├── 20201023_040000_d_o_solv-20201023_040000_d
-│   ├── down.sql
-│   └── up.sql
-├── 20201023_050000_e_o_solv-20201023_050000_e
-│   ├── down.sql
-│   └── up.sql
-├── 20201023_060000_f_o_solv-20201023_060000_f
-│   ├── down.sql
-│   └── up.sql
-└── 20201023_070000_g_o_solv-20201023_070000_g
-    ├── down.sql
-    └── up.sql
+database-url: <postgres-url>
+
+migration-repository: <path-to-schema-directory>
+migration-directory: <migrations-directory>
+
+templates:
+  schema:
+    up:
+      BEGIN;
+
+      -- insert your code here --
+
+      INSERT INTO schema_version (version, logged_by) VALUES ('{{.Migration}}', '{{.Author}}');
+
+      COMMIT;
+
+    down:
+      BEGIN;
+
+      -- insert your code here --
+
+      DELETE FROM schema_version where version = '{{.Migration}}';
+
+      COMMIT;
+
+
+  data:
+    up: |
+      -- insert your code here --
+
+      INSERT INTO schema_version (version, logged_by) VALUES ('{{.Migration}}', '{{.Author}}');
+
+    down: |
+      -- insert your code here --
+
+      DELETE FROM schema_version where version = '{{.Migration}}';
+
 ```
+
+Warnings
+========
+
+Only ever apply migrations on the same branch as previous runs.  Running on different branches could lead to commit hashes not being found in cases of squashing.  If you really want to run it on a different branch.  Make sure you rollback your changes on the test branch and reapply them on the main branch.
+
+
