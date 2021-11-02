@@ -276,6 +276,7 @@ func (migrations Migrations) Execute(instructions *Instructions) error {
 // 		if err != nil {
 // 			return err
 // 		}
+		fmt.Println("#")
 	}
 	return nil
 }
