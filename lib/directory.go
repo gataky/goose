@@ -273,9 +273,9 @@ func (migrations Migrations) Execute(instructions *Instructions) error {
 			yellow("↓ %s\n", migration.Hash)
 			err = migration.Down.Execute(db)
 		}
-// 		if err != nil {
-// 			return err
-// 		}
+		// 		if err != nil {
+		// 			return err
+		// 		}
 		fmt.Println(err)
 	}
 	return nil
